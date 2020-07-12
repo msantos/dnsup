@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -30,7 +31,6 @@ type ifT struct {
 	interval time.Duration
 }
 
-// argvT : command line arguments
 type argvT struct {
 	iface   []ifT
 	domain  string
@@ -47,8 +47,11 @@ const (
 )
 
 var (
-	errNoValidAddresses = fmt.Errorf("no valid addresses")
-	errInvalidAddress   = fmt.Errorf("invalid address")
+	errNoValidAddresses     = errors.New("no valid addresses")
+	errInvalidAddress       = errors.New("invalid address")
+	errInvalidStrategy      = errors.New("invalid strategy")
+	errInvalidSpecification = errors.New("invalid specification")
+	errUnsupportedProtocol  = errors.New("unsupported protocol")
 )
 
 func strategy(str string) (strategyT, error) {
@@ -62,7 +65,7 @@ func strategy(str string) (strategyT, error) {
 	case "resolv":
 		return sResolv, nil
 	default:
-		return sAssigned, fmt.Errorf("invalid strategy: %s", str)
+		return sAssigned, fmt.Errorf("%w: %s", errInvalidStrategy, str)
 	}
 }
 
@@ -94,7 +97,7 @@ func toIf(arg []string) (ifs []ifT, err error) {
 			}
 			ifs = append(ifs, ifT{name: x[0], label: x[1], strategy: s, interval: d})
 		default:
-			return ifs, fmt.Errorf("invalid specification: %s", v)
+			return ifs, fmt.Errorf("%w: %s", errInvalidSpecification, v)
 		}
 	}
 	return ifs, err
@@ -124,16 +127,16 @@ Usage: %s [<option>] <interface> <...>
 		"Gandi APIKEY",
 	)
 
-	env_ttl := getenv("DNSUP_TTL", "300")
-	default_ttl, err := strconv.ParseInt(env_ttl, 10, 64)
+	envTTL := getenv("DNSUP_TTL", "300")
+	defaultTTL, err := strconv.ParseInt(envTTL, 10, 64)
 	if err != nil {
-		fmt.Printf("invalid ttl: DNSUP_TTL: %s\n", env_ttl)
+		fmt.Printf("invalid ttl: DNSUP_TTL: %s\n", envTTL)
 		os.Exit(1)
 	}
 
 	ttl := flag.Int(
 		"ttl",
-		int(default_ttl),
+		int(defaultTTL),
 		"DNS TTL",
 	)
 
@@ -173,13 +176,13 @@ func main() {
 	argv := args()
 	errch := make(chan error)
 	for _, ift := range argv.iface {
-		go run(argv, ift, errch)
+		go argv.run(ift, errch)
 	}
 	err := <-errch
 	argv.stderr.Fatalln(err)
 }
 
-func run(argv *argvT, ift ifT, errch chan<- error) {
+func (argv *argvT) run(ift ifT, errch chan<- error) {
 	if argv.verbose > 0 {
 		argv.stderr.Printf("polling: %+v\n", ift)
 	}
@@ -187,34 +190,31 @@ func run(argv *argvT, ift ifT, errch chan<- error) {
 	ticker := time.Tick(ift.interval)
 	var p string
 loop:
-	for {
-		select {
-		case <-ticker:
-			ip, err := ipaddr(ift.name)
-			if err != nil {
-				errch <- err
-				break loop
-			}
-			n, err := resolv(argv, ift, ip)
-			if err != nil {
-				argv.stderr.Fatalln(err)
-				errch <- err
-				break loop
-			}
-			if argv.verbose > 0 {
-				argv.stderr.Println(ift.label, argv.domain, n)
-			}
-			if p == n {
-				continue
-			}
-			p = n
-			if argv.dryrun {
-				continue
-			}
-			if err := publish(argv, ift.label, n); err != nil {
-				errch <- err
-				break loop
-			}
+	for range ticker {
+		ip, err := ipaddr(ift.name)
+		if err != nil {
+			errch <- err
+			break loop
+		}
+		n, err := argv.resolv(ift, ip)
+		if err != nil {
+			argv.stderr.Fatalln(err)
+			errch <- err
+			break loop
+		}
+		if argv.verbose > 0 {
+			argv.stderr.Println(ift.label, argv.domain, n)
+		}
+		if p == n {
+			continue
+		}
+		p = n
+		if argv.dryrun {
+			continue
+		}
+		if err := argv.publish(ift.label, n); err != nil {
+			errch <- err
+			break loop
 		}
 	}
 }
@@ -225,6 +225,9 @@ func ipaddr(name string) (n []net.IP, err error) {
 		return n, err
 	}
 	addr, err := i.Addrs()
+	if err != nil {
+		return n, err
+	}
 	for _, v := range addr {
 		ip, _, err := net.ParseCIDR(v.String())
 		if err != nil {
@@ -238,12 +241,13 @@ func ipaddr(name string) (n []net.IP, err error) {
 	return n, nil
 }
 
-func resolv(argv *argvT, ift ifT, addr []net.IP) (string, error) {
+func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 	if len(addr) == 0 {
 		return "", nil
 	}
 	pub := true
-	for _, a := range addr {
+	for _, address := range addr {
+		a := address
 		if a.To4() == nil {
 			pub = false
 		}
@@ -277,7 +281,8 @@ func resolv(argv *argvT, ift ifT, addr []net.IP) (string, error) {
 			}
 			fmt.Println("ip:", ipaddr)
 			if !pub {
-				return ipaddr[0], fmt.Errorf("unsupported:ipv6:%s", ipaddr[0])
+				return ipaddr[0], fmt.Errorf("%w:%s", errUnsupportedProtocol,
+					ipaddr[0])
 			}
 			return ipaddr[0], nil
 		}
@@ -285,7 +290,7 @@ func resolv(argv *argvT, ift ifT, addr []net.IP) (string, error) {
 	return "", errNoValidAddresses
 }
 
-func publish(argv *argvT, label, ipaddr string) error {
+func (argv *argvT) publish(label, ipaddr string) error {
 	u := fmt.Sprintf("https://dns.api.gandi.net/api/v5/domains/%s/records/%s/A",
 		argv.domain,
 		label,
