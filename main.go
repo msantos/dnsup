@@ -35,6 +35,7 @@ type argvT struct {
 	iface   []ifT
 	domain  string
 	apikey  string
+	service string
 	ttl     int
 	dryrun  bool
 	verbose int
@@ -70,8 +71,7 @@ func strategy(str string) (strategyT, error) {
 }
 
 func toIf(arg []string) (ifs []ifT, err error) {
-	//minute := time.Minute
-	minute := 10 * time.Second
+	minute := time.Minute
 	for _, v := range arg {
 		x := strings.Split(v, ":")
 		switch len(x) {
@@ -127,6 +127,12 @@ Usage: %s [<option>] <interface> <...>
 		"Gandi APIKEY",
 	)
 
+	service := flag.String(
+		"service",
+		"google",
+		"Service for discovering IP address: Google, OpenDNS",
+	)
+
 	envTTL := getenv("DNSUP_TTL", "300")
 	defaultTTL, err := strconv.ParseInt(envTTL, 10, 64)
 	if err != nil {
@@ -160,12 +166,22 @@ Usage: %s [<option>] <interface> <...>
 		os.Exit(1)
 	}
 
+	*service = strings.ToLower(*service)
+	switch *service {
+	case "google":
+	case "opendns":
+	default:
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	return &argvT{
 		dryrun:  *dryrun,
 		iface:   ifs,
 		domain:  flag.Args()[:1][0],
 		ttl:     *ttl,
 		apikey:  *apikey,
+		service: *service,
 		verbose: *verbose,
 		stdout:  log.New(os.Stdout, "", 0),
 		stderr:  log.New(os.Stderr, "", 0),
@@ -247,7 +263,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 	}
 	pub := true
 	for _, address := range addr {
-		a := address
+		a := address // local scope
 		if a.To4() == nil {
 			pub = false
 		}
@@ -263,13 +279,11 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 						LocalAddr: &net.UDPAddr{IP: a},
 						Timeout:   time.Millisecond * time.Duration(10000),
 					}
-					return d.DialContext(ctx, "udp", "ns1.google.com:53")
-					//return d.DialContext(ctx, "udp", "resolver1.opendns.com:53")
+					return d.DialContext(ctx, "udp", argv.nameserver())
 				},
 			}
 			ctx := context.Background()
-			ipaddr, err := r.LookupTXT(ctx, "o-o.myaddr.l.google.com")
-			//ipaddr, err := r.LookupHost(ctx, "myip.opendns.com")
+			ipaddr, err := argv.lookup(ctx, r)
 			if err != nil {
 				return "", err
 			}
@@ -340,4 +354,26 @@ func (argv *argvT) publish(label, ipaddr string) error {
 	}
 	fmt.Println(string(rbody))
 	return nil
+}
+
+func (argv *argvT) nameserver() string {
+	switch argv.service {
+	case "google":
+		return "ns1.google.com:53"
+	case "opendns":
+		return "resolver1.opendns.com:53"
+	default:
+		panic("unsupported service")
+	}
+}
+
+func (argv *argvT) lookup(ctx context.Context, r *net.Resolver) ([]string, error) {
+	switch argv.service {
+	case "google":
+		return r.LookupTXT(ctx, "o-o.myaddr.l.google.com")
+	case "opendns":
+		return r.LookupHost(ctx, "myip.opendns.com")
+	default:
+		panic("unsupported service")
+	}
 }
