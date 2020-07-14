@@ -32,15 +32,16 @@ type ifT struct {
 }
 
 type argvT struct {
-	iface   []ifT
-	domain  string
-	apikey  string
-	service string
-	ttl     int
-	dryrun  bool
-	verbose int
-	stdout  *log.Logger
-	stderr  *log.Logger
+	iface        []ifT
+	domain       string
+	apikey       string
+	service      string
+	ttl          int
+	pollInterval time.Duration
+	dryrun       bool
+	verbose      int
+	stdout       *log.Logger
+	stderr       *log.Logger
 }
 
 const (
@@ -70,22 +71,21 @@ func strategy(str string) (strategyT, error) {
 	}
 }
 
-func toIf(arg []string) (ifs []ifT, err error) {
-	minute := time.Minute
+func toIf(arg []string, interval time.Duration) (ifs []ifT, err error) {
 	for _, v := range arg {
 		x := strings.Split(v, ":")
 		switch len(x) {
 		case 1:
-			ifs = append(ifs, ifT{name: x[0], label: x[0], interval: minute})
+			ifs = append(ifs, ifT{name: x[0], label: x[0], interval: interval})
 		case 2:
-			ifs = append(ifs, ifT{name: x[0], label: x[1], interval: minute})
+			ifs = append(ifs, ifT{name: x[0], label: x[1], interval: interval})
 		case 3:
 			s, err := strategy(x[2])
 			if err != nil {
 				return ifs, err
 			}
 			ifs = append(ifs, ifT{name: x[0], label: x[1], strategy: s,
-				interval: minute})
+				interval: interval})
 		case 4:
 			s, err := strategy(x[2])
 			if err != nil {
@@ -113,7 +113,7 @@ func getenv(k, def string) string {
 func args() *argvT {
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr, `%s v%s
-Usage: %s [<option>] <interface> <...>
+Usage: %s [<option>] <domain> <interface> <...>
 
 `, path.Base(os.Args[0]), version, os.Args[0])
 		flag.PrintDefaults()
@@ -146,6 +146,12 @@ Usage: %s [<option>] <interface> <...>
 		"DNS TTL",
 	)
 
+	pollInterval := flag.Duration(
+		"poll-interval",
+		1*time.Minute,
+		"IP address discovery poll interval",
+	)
+
 	verbose := flag.Int(
 		"verbose",
 		0,
@@ -159,7 +165,7 @@ Usage: %s [<option>] <interface> <...>
 		os.Exit(1)
 	}
 
-	ifs, err := toIf(flag.Args()[1:])
+	ifs, err := toIf(flag.Args()[1:], *pollInterval)
 	if err != nil {
 		flag.Usage()
 		fmt.Println(err)
@@ -176,15 +182,16 @@ Usage: %s [<option>] <interface> <...>
 	}
 
 	return &argvT{
-		dryrun:  *dryrun,
-		iface:   ifs,
-		domain:  flag.Args()[:1][0],
-		ttl:     *ttl,
-		apikey:  *apikey,
-		service: *service,
-		verbose: *verbose,
-		stdout:  log.New(os.Stdout, "", 0),
-		stderr:  log.New(os.Stderr, "", 0),
+		dryrun:       *dryrun,
+		iface:        ifs,
+		domain:       flag.Args()[:1][0],
+		ttl:          *ttl,
+		pollInterval: *pollInterval,
+		apikey:       *apikey,
+		service:      *service,
+		verbose:      *verbose,
+		stdout:       log.New(os.Stdout, "", 0),
+		stderr:       log.New(os.Stderr, "", 0),
 	}
 }
 
