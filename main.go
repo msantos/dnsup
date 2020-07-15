@@ -123,7 +123,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 
 	apikey := flag.String(
 		"apikey",
-		getenv("DNSUP_APIKEY", "<unset>"),
+		getenv("DNSUP_APIKEY", ""),
 		"Gandi APIKEY",
 	)
 
