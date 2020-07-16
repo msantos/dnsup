@@ -130,7 +130,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 	service := flag.String(
 		"service",
 		"google",
-		"Service for discovering IP address: Google, OpenDNS",
+		"Service for discovering IP address: Akamai, Google, OpenDNS",
 	)
 
 	envTTL := getenv("DNSUP_TTL", "300")
@@ -174,6 +174,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 
 	*service = strings.ToLower(*service)
 	switch *service {
+	case "akamai":
 	case "google":
 	case "opendns":
 	default:
@@ -365,6 +366,8 @@ func (argv *argvT) publish(label, ipaddr string) error {
 
 func (argv *argvT) nameserver() string {
 	switch argv.service {
+	case "akamai":
+		return "ns1-1.akamaitech.net:53"
 	case "google":
 		return "ns1.google.com:53"
 	case "opendns":
@@ -376,6 +379,8 @@ func (argv *argvT) nameserver() string {
 
 func (argv *argvT) lookup(ctx context.Context, r *net.Resolver) ([]string, error) {
 	switch argv.service {
+	case "akamai":
+		return r.LookupHost(ctx, "whoami.akamai.net")
 	case "google":
 		return r.LookupTXT(ctx, "o-o.myaddr.l.google.com")
 	case "opendns":
