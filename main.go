@@ -22,6 +22,7 @@ type strategyT int
 const (
 	sAssigned = iota
 	sResolv
+	sResolv6
 )
 
 type ifT struct {
@@ -66,6 +67,8 @@ func strategy(str string) (strategyT, error) {
 		fallthrough
 	case "resolv":
 		return sResolv, nil
+	case "resolv6":
+		return sResolv6, nil
 	default:
 		return sAssigned, fmt.Errorf("%w: %s", errInvalidStrategy, str)
 	}
@@ -275,23 +278,38 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		if a.To4() == nil {
 			pub = false
 		}
+
+		var r net.Resolver
+		r.PreferGo = true
+
+		switch ift.strategy {
+		case sResolv:
+			r.Dial = func(ctx context.Context, network,
+				address string) (net.Conn, error) {
+				d := net.Dialer{
+					LocalAddr: &net.UDPAddr{IP: a},
+					Timeout:   time.Millisecond * time.Duration(10000),
+				}
+				return d.DialContext(ctx, "udp", argv.nameserver())
+			}
+		case sResolv6:
+			r.Dial = func(ctx context.Context, network,
+				address string) (net.Conn, error) {
+				d := net.Dialer{
+					Timeout: time.Millisecond * time.Duration(10000),
+				}
+				return d.DialContext(ctx, "udp6", argv.nameserver())
+			}
+		}
+
 		switch ift.strategy {
 		case sAssigned:
 			return a.String(), nil
 		case sResolv:
-			r := &net.Resolver{
-				PreferGo: true,
-				Dial: func(ctx context.Context, network,
-					address string) (net.Conn, error) {
-					d := net.Dialer{
-						LocalAddr: &net.UDPAddr{IP: a},
-						Timeout:   time.Millisecond * time.Duration(10000),
-					}
-					return d.DialContext(ctx, "udp", argv.nameserver())
-				},
-			}
+			fallthrough
+		case sResolv6:
 			ctx := context.Background()
-			ipaddr, err := argv.lookup(ctx, r)
+			ipaddr, err := argv.lookup(ctx, &r)
 			if err != nil {
 				return "", err
 			}
