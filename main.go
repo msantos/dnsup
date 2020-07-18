@@ -331,9 +331,18 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 }
 
 func (argv *argvT) publish(label, ipaddr string) error {
-	u := fmt.Sprintf("https://dns.api.gandi.net/api/v5/domains/%s/records/%s/A",
+	ip := net.ParseIP(ipaddr)
+	if ip == nil {
+		return nil
+	}
+	rtype := "A"
+	if ip.To4() == nil {
+		rtype = "AAAA"
+	}
+	u := fmt.Sprintf("https://dns.api.gandi.net/api/v5/domains/%s/records/%s/%s",
 		argv.domain,
 		label,
+		rtype,
 	)
 
 	h := make(http.Header)
