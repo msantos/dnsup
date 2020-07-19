@@ -21,6 +21,7 @@ type strategyT int
 
 const (
 	sAssigned = iota
+	sInet6
 	sResolv
 	sResolv6
 )
@@ -63,6 +64,8 @@ func strategy(str string) (strategyT, error) {
 		fallthrough
 	case "assigned":
 		return sAssigned, nil
+	case "inet6":
+		return sInet6, nil
 	case "resolve":
 		fallthrough
 	case "resolv":
@@ -272,12 +275,8 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 	if len(addr) == 0 {
 		return "", nil
 	}
-	pub := true
 	for _, address := range addr {
 		a := address // local scope
-		if a.To4() == nil {
-			pub = false
-		}
 
 		var r net.Resolver
 		r.PreferGo = true
@@ -304,6 +303,14 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 
 		switch ift.strategy {
 		case sAssigned:
+			if a.To4() == nil {
+				continue
+			}
+			return a.String(), nil
+		case sInet6:
+			if a.To4() != nil {
+				continue
+			}
 			return a.String(), nil
 		case sResolv:
 			fallthrough
@@ -311,19 +318,24 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 			ctx := context.Background()
 			ipaddr, err := argv.lookup(ctx, &r)
 			if err != nil {
-				return "", err
+				if argv.verbose > 0 {
+					argv.stderr.Println(a, err)
+				}
+				continue
 			}
 			if len(ipaddr) == 0 {
-				return "", errInvalidAddress
+				if argv.verbose > 0 {
+					argv.stderr.Println(a, errInvalidAddress)
+				}
+				continue
 			}
 			if net.ParseIP(ipaddr[0]) == nil {
-				return ipaddr[0], errInvalidAddress
+				if argv.verbose > 0 {
+					argv.stderr.Println(a, errInvalidAddress)
+				}
+				continue
 			}
 			fmt.Println("ip:", ipaddr)
-			if !pub {
-				return ipaddr[0], fmt.Errorf("%w:%s", errUnsupportedProtocol,
-					ipaddr[0])
-			}
 			return ipaddr[0], nil
 		}
 	}
