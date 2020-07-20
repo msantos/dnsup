@@ -20,7 +20,7 @@ import (
 type strategyT int
 
 const (
-	sAssigned = iota
+	sInet = iota
 	sInet6
 	sResolv
 	sResolv6
@@ -60,20 +60,16 @@ var (
 
 func strategy(str string) (strategyT, error) {
 	switch str {
-	case "assign":
-		fallthrough
-	case "assigned":
-		return sAssigned, nil
+	case "inet":
+		return sInet, nil
 	case "inet6":
 		return sInet6, nil
-	case "resolve":
-		fallthrough
 	case "resolv":
 		return sResolv, nil
 	case "resolv6":
 		return sResolv6, nil
 	default:
-		return sAssigned, fmt.Errorf("%w: %s", errInvalidStrategy, str)
+		return sInet, fmt.Errorf("%w: %s", errInvalidStrategy, str)
 	}
 }
 
@@ -302,7 +298,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		}
 
 		switch ift.strategy {
-		case sAssigned:
+		case sInet:
 			if a.To4() == nil {
 				continue
 			}
