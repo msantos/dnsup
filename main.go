@@ -302,11 +302,13 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 			if a.To4() == nil {
 				continue
 			}
+			fmt.Println(ift.strategy, a)
 			return a.String(), nil
 		case sInet6:
 			if a.To4() != nil {
 				continue
 			}
+			fmt.Println(ift.strategy, a)
 			return a.String(), nil
 		case sResolv:
 			fallthrough
@@ -331,7 +333,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 				}
 				continue
 			}
-			fmt.Println("ip:", ipaddr)
+			fmt.Println(ift.strategy, ipaddr)
 			return ipaddr[0], nil
 		}
 	}
