@@ -73,6 +73,21 @@ func strategy(str string) (strategyT, error) {
 	}
 }
 
+func (x strategyT) String() string {
+	switch x {
+	case sInet:
+		return "inet"
+	case sInet6:
+		return "inet6"
+	case sResolv:
+		return "resolv"
+	case sResolv6:
+		return "resolv6"
+	default:
+		return "unknown"
+	}
+}
+
 func toIf(arg []string, interval time.Duration) (ifs []ifT, err error) {
 	for _, v := range arg {
 		x := strings.Split(v, ":")
