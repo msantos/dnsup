@@ -298,7 +298,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 				address string) (net.Conn, error) {
 				d := net.Dialer{
 					LocalAddr: &net.UDPAddr{IP: a},
-					Timeout:   time.Millisecond * time.Duration(10000),
+					Timeout:   ift.interval,
 				}
 				return d.DialContext(ctx, "udp", argv.nameserver())
 			}
@@ -306,7 +306,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 			r.Dial = func(ctx context.Context, network,
 				address string) (net.Conn, error) {
 				d := net.Dialer{
-					Timeout: time.Millisecond * time.Duration(10000),
+					Timeout: ift.interval,
 				}
 				return d.DialContext(ctx, "udp6", argv.nameserver())
 			}
