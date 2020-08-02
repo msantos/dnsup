@@ -20,9 +20,9 @@ import (
 type strategyT int
 
 const (
-	sInet = iota
+	sInet4 = iota
 	sInet6
-	sResolv
+	sResolv4
 	sResolv6
 )
 
@@ -61,26 +61,30 @@ var (
 func strategy(str string) (strategyT, error) {
 	switch str {
 	case "inet":
-		return sInet, nil
+		fallthrough
+	case "inet4":
+		return sInet4, nil
 	case "inet6":
 		return sInet6, nil
 	case "resolv":
-		return sResolv, nil
+		fallthrough
+	case "resolv4":
+		return sResolv4, nil
 	case "resolv6":
 		return sResolv6, nil
 	default:
-		return sInet, fmt.Errorf("%w: %s", errInvalidStrategy, str)
+		return sInet4, fmt.Errorf("%w: %s", errInvalidStrategy, str)
 	}
 }
 
 func (x strategyT) String() string {
 	switch x {
-	case sInet:
-		return "inet"
+	case sInet4:
+		return "inet4"
 	case sInet6:
 		return "inet6"
-	case sResolv:
-		return "resolv"
+	case sResolv4:
+		return "resolv4"
 	case sResolv6:
 		return "resolv6"
 	default:
@@ -293,7 +297,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		r.PreferGo = true
 
 		switch ift.strategy {
-		case sResolv:
+		case sResolv4:
 			r.Dial = func(ctx context.Context, network,
 				address string) (net.Conn, error) {
 				d := net.Dialer{
@@ -313,7 +317,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		}
 
 		switch ift.strategy {
-		case sInet:
+		case sInet4:
 			if a.To4() == nil {
 				continue
 			}
@@ -325,7 +329,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 			}
 			fmt.Println(ift.strategy, a)
 			return a.String(), nil
-		case sResolv:
+		case sResolv4:
 			fallthrough
 		case sResolv6:
 			ctx := context.Background()
