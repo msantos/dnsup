@@ -105,8 +105,10 @@ func toIf(arg []string, interval time.Duration) (ifs []ifT, err error) {
 			if err != nil {
 				return ifs, err
 			}
-			ifs = append(ifs, ifT{name: x[0], label: x[1], strategy: s,
-				interval: interval})
+			ifs = append(ifs, ifT{
+				name: x[0], label: x[1], strategy: s,
+				interval: interval,
+			})
 		case 4:
 			s, err := strategy(x[2])
 			if err != nil {
@@ -234,18 +236,17 @@ func (argv *argvT) run(ift ifT, errch chan<- error) {
 
 	ticker := time.Tick(ift.interval)
 	var p string
-loop:
+
 	for range ticker {
 		ip, err := ipaddr(ift.name)
 		if err != nil {
 			errch <- err
-			break loop
+			return
 		}
 		n, err := argv.resolv(ift, ip)
 		if err != nil {
-			argv.stderr.Fatalln(err)
-			errch <- err
-			break loop
+			argv.stderr.Printf("resolv: %+v: %s\n", ift, err)
+			continue
 		}
 		if argv.verbose > 0 {
 			argv.stderr.Println(ift.label, argv.domain, n)
@@ -258,8 +259,8 @@ loop:
 			continue
 		}
 		if err := argv.publish(ift.label, n); err != nil {
-			errch <- err
-			break loop
+			argv.stderr.Printf("publish: %+v: %s\n", ift, err)
+			continue
 		}
 	}
 }
