@@ -17,19 +17,20 @@ import (
 	"time"
 )
 
-type strategyT int
+//go:generate stringer -type=Strategy
+type Strategy int
 
 const (
-	sInet4 = iota
-	sInet6
-	sResolv4
-	sResolv6
+	inet4 Strategy = iota
+	inet6
+	resolv4
+	resolv6
 )
 
 type ifT struct {
 	name     string
 	label    string
-	strategy strategyT
+	strategy Strategy
 	interval time.Duration
 }
 
@@ -58,37 +59,22 @@ var (
 	errUnsupportedProtocol  = errors.New("unsupported protocol")
 )
 
-func strategy(str string) (strategyT, error) {
+func strategy(str string) (Strategy, error) {
 	switch str {
 	case "inet":
 		fallthrough
 	case "inet4":
-		return sInet4, nil
+		return inet4, nil
 	case "inet6":
-		return sInet6, nil
+		return inet6, nil
 	case "resolv":
 		fallthrough
 	case "resolv4":
-		return sResolv4, nil
+		return resolv4, nil
 	case "resolv6":
-		return sResolv6, nil
+		return resolv6, nil
 	default:
-		return sInet4, fmt.Errorf("%w: %s", errInvalidStrategy, str)
-	}
-}
-
-func (x strategyT) String() string {
-	switch x {
-	case sInet4:
-		return "inet4"
-	case sInet6:
-		return "inet6"
-	case sResolv4:
-		return "resolv4"
-	case sResolv6:
-		return "resolv6"
-	default:
-		return "unknown"
+		return inet4, fmt.Errorf("%w: %s", errInvalidStrategy, str)
 	}
 }
 
@@ -298,7 +284,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		r.PreferGo = true
 
 		switch ift.strategy {
-		case sResolv4:
+		case resolv4:
 			r.Dial = func(ctx context.Context, network,
 				address string) (net.Conn, error) {
 				d := net.Dialer{
@@ -307,7 +293,7 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 				}
 				return d.DialContext(ctx, "udp", argv.nameserver())
 			}
-		case sResolv6:
+		case resolv6:
 			r.Dial = func(ctx context.Context, network,
 				address string) (net.Conn, error) {
 				d := net.Dialer{
@@ -318,21 +304,21 @@ func (argv *argvT) resolv(ift ifT, addr []net.IP) (string, error) {
 		}
 
 		switch ift.strategy {
-		case sInet4:
+		case inet4:
 			if a.To4() == nil {
 				continue
 			}
 			fmt.Println(ift.strategy, a)
 			return a.String(), nil
-		case sInet6:
+		case inet6:
 			if a.To4() != nil {
 				continue
 			}
 			fmt.Println(ift.strategy, a)
 			return a.String(), nil
-		case sResolv4:
+		case resolv4:
 			fallthrough
-		case sResolv6:
+		case resolv6:
 			ctx := context.Background()
 			ipaddr, err := argv.lookup(ctx, &r)
 			if err != nil {
