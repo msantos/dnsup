@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2021, Michael Santos <michael.santos@gmail.com>
+// Copyright (c) 2020-2022, Michael Santos <michael.santos@gmail.com>
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -62,6 +62,10 @@ type argvT struct {
 
 const (
 	version = "0.1.0"
+
+	Akamai  = "akamai"
+	Google  = "google"
+	OpenDNS = "opendns"
 )
 
 var (
@@ -69,7 +73,6 @@ var (
 	errInvalidAddress       = errors.New("invalid address")
 	errInvalidStrategy      = errors.New("invalid strategy")
 	errInvalidSpecification = errors.New("invalid specification")
-	errUnsupportedProtocol  = errors.New("unsupported protocol")
 )
 
 func strategy(str string) (Strategy, error) {
@@ -151,7 +154,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 
 	service := flag.String(
 		"service",
-		"google",
+		Google,
 		"Service for discovering IP address: Akamai, Google, OpenDNS",
 	)
 
@@ -196,9 +199,9 @@ Usage: %s [<option>] <domain> <interface> <...>
 
 	*service = strings.ToLower(*service)
 	switch *service {
-	case "akamai":
-	case "google":
-	case "opendns":
+	case Akamai:
+	case Google:
+	case OpenDNS:
 	default:
 		flag.Usage()
 		os.Exit(1)
@@ -422,11 +425,11 @@ func (argv *argvT) publish(label, ipaddr string) error {
 
 func (argv *argvT) nameserver() string {
 	switch argv.service {
-	case "akamai":
+	case Akamai:
 		return "ns1-1.akamaitech.net:53"
-	case "google":
+	case Google:
 		return "ns1.google.com:53"
-	case "opendns":
+	case OpenDNS:
 		return "resolver1.opendns.com:53"
 	default:
 		panic("unsupported service")
@@ -435,11 +438,11 @@ func (argv *argvT) nameserver() string {
 
 func (argv *argvT) lookup(ctx context.Context, r *net.Resolver) ([]string, error) {
 	switch argv.service {
-	case "akamai":
+	case Akamai:
 		return r.LookupHost(ctx, "whoami.akamai.net")
-	case "google":
+	case Google:
 		return r.LookupTXT(ctx, "o-o.myaddr.l.google.com")
-	case "opendns":
+	case OpenDNS:
 		return r.LookupHost(ctx, "myip.opendns.com")
 	default:
 		panic("unsupported service")
