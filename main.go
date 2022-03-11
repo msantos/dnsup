@@ -61,11 +61,12 @@ type argvT struct {
 }
 
 const (
-	version = "0.1.0"
+	version = "0.1.1"
 
-	Akamai  = "akamai"
-	Google  = "google"
-	OpenDNS = "opendns"
+	Akamai     = "akamai"
+	Cloudflare = "cloudflare"
+	Google     = "google"
+	OpenDNS    = "opendns"
 )
 
 var (
@@ -155,7 +156,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 	service := flag.String(
 		"service",
 		Google,
-		"Service for discovering IP address: Akamai, Google, OpenDNS",
+		"Service for discovering IP address: Akamai, Cloudflare, Google, OpenDNS",
 	)
 
 	envTTL := getenv("DNSUP_TTL", "300")
@@ -200,6 +201,7 @@ Usage: %s [<option>] <domain> <interface> <...>
 	*service = strings.ToLower(*service)
 	switch *service {
 	case Akamai:
+	case Cloudflare:
 	case Google:
 	case OpenDNS:
 	default:
@@ -427,6 +429,8 @@ func (argv *argvT) nameserver() string {
 	switch argv.service {
 	case Akamai:
 		return "ns1-1.akamaitech.net:53"
+	case Cloudflare:
+		return "armando.ns.cloudflare.com:53"
 	case Google:
 		return "ns1.google.com:53"
 	case OpenDNS:
@@ -440,6 +444,8 @@ func (argv *argvT) lookup(ctx context.Context, r *net.Resolver) ([]string, error
 	switch argv.service {
 	case Akamai:
 		return r.LookupHost(ctx, "whoami.akamai.net")
+	case Cloudflare:
+		return r.LookupTXT(ctx, "whoami.cloudflare.com")
 	case Google:
 		return r.LookupTXT(ctx, "o-o.myaddr.l.google.com")
 	case OpenDNS:
