@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2022, Michael Santos <michael.santos@gmail.com>
+// Copyright (c) 2020-2024, Michael Santos <michael.santos@gmail.com>
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -14,20 +14,19 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net"
-	"net/http"
 	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/cloudflare/cloudflare-go"
 )
 
 //go:generate stringer -type=Strategy
@@ -61,7 +60,7 @@ type argvT struct {
 }
 
 const (
-	version = "0.1.1"
+	version = "0.2.0"
 
 	Akamai     = "akamai"
 	Cloudflare = "cloudflare"
@@ -74,19 +73,16 @@ var (
 	errInvalidAddress       = errors.New("invalid address")
 	errInvalidStrategy      = errors.New("invalid strategy")
 	errInvalidSpecification = errors.New("invalid specification")
+	errDomainNotFound       = errors.New("domain not found")
 )
 
 func strategy(str string) (Strategy, error) {
 	switch str {
-	case "inet":
-		fallthrough
-	case "inet4":
+	case "inet", "inet4":
 		return inet4, nil
 	case "inet6":
 		return inet6, nil
-	case "resolv":
-		fallthrough
-	case "resolv4":
+	case "resolv", "resolv4":
 		return resolv4, nil
 	case "resolv6":
 		return resolv6, nil
@@ -149,8 +145,8 @@ Usage: %s [<option>] <domain> <interface> <...>
 
 	apikey := flag.String(
 		"apikey",
-		getenv("DNSUP_APIKEY", ""),
-		"Gandi APIKEY",
+		getenv("CLOUDFLARE_API_TOKEN", ""),
+		"Cloudflare scoped API token",
 	)
 
 	service := flag.String(
@@ -373,55 +369,66 @@ func (argv *argvT) publish(label, ipaddr string) error {
 	if ip.To4() == nil {
 		rtype = "AAAA"
 	}
-	u := fmt.Sprintf("https://dns.api.gandi.net/api/v5/domains/%s/records/%s/%s",
-		argv.domain,
-		label,
-		rtype,
-	)
 
-	h := make(http.Header)
-	h.Set("Content-Type", "application/json")
-	h.Set("X-Api-Key", argv.apikey)
+	api, err := cloudflare.NewWithAPIToken(argv.apikey)
+	if err != nil {
+		return err
+	}
 
-	body := fmt.Sprintf(
-		"{\"rrset_ttl\": %d, \"rrset_values\":[\"%s\"]}",
-		argv.ttl,
-		ipaddr,
-	)
+	zoneID, err := api.ZoneIDByName(argv.domain)
+	if err != nil {
+		return err
+	}
 
 	ctx := context.Background()
-	r, err := http.NewRequestWithContext(
+
+	records, _, err := api.ListDNSRecords(
 		ctx,
-		"PUT",
-		u,
-		bytes.NewBufferString(body),
+		cloudflare.ZoneIdentifier(zoneID),
+		cloudflare.ListDNSRecordsParams{Name: label + "." + argv.domain},
 	)
 	if err != nil {
 		return err
 	}
 
-	r.Header = h
+	id := ""
+	for _, r := range records {
+		if argv.verbose > 2 {
+			fmt.Printf("%s: %s: %+v\n", r.Name, r.Content, r)
+		}
+		if r.Type == rtype {
+			id = r.ID
+		}
+	}
+
+	if id == "" {
+		return errDomainNotFound
+	}
+
+	params := cloudflare.UpdateDNSRecordParams{
+		Type:    rtype,
+		Name:    label,
+		ID:      id,
+		Content: ipaddr,
+		TTL:     argv.ttl,
+	}
 
 	if argv.verbose > 0 {
-		fmt.Printf("%+v\n", r)
+		fmt.Printf("%+v\n", params)
 	}
 
 	if argv.dryrun {
 		return nil
 	}
 
-	c := &http.Client{}
-	resp, err := c.Do(r)
-	if err != nil {
+	if _, err := api.UpdateDNSRecord(
+		ctx,
+		cloudflare.ZoneIdentifier(zoneID),
+		params,
+	); err != nil {
 		return err
 	}
 
-	defer resp.Body.Close()
-	rbody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Println(string(rbody))
 	return nil
 }
 

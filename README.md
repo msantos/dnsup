@@ -5,7 +5,7 @@ dnsup [*options*] <domain> <interface>
 # DESCRIPTION
 
 A dynamic DNS client to monitor the public IP address of an interface and
-publish using the [Gandi Domain API](https://api.gandi.net/docs/domains/).
+publish using the [Cloudflare API](https://developers.cloudflare.com/api/operations/dns-records-for-a-zone-update-dns-record).
 
 # BUILDING
 
@@ -44,7 +44,7 @@ resolv6
 # OPTIONS
 
 apikey *string*
-: Gandi APIKEY
+: Cloudflare scoped API token
 
 dryrun
 : Do not update DNS
@@ -60,3 +60,8 @@ ttl *int*
 
 verbose *int*
 : Debug output
+
+# ENVIRONMENT VARIABLES
+
+CLOUDFLARE_API_TOKEN
+: scoped API token with edit DNS zone capability
