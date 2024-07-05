@@ -9,17 +9,23 @@ publish using the [Cloudflare API](https://developers.cloudflare.com/api/operati
 
 # BUILDING
 
-    CGO_ENABLED=0 go build -trimpath -ldflags "-w"
+```
+CGO_ENABLED=0 go build -trimpath -ldflags "-w"
+```
 
 # EXAMPLES
 
-    dnsup example.com eth0:host1:inet6 eth1:host2:resolv
+```
+dnsup example.com eth0:host1:inet6 eth1:host2:resolv
+```
 
 # ARGUMENTS
 
 The command line arguments consist of colon delimited strings:
 
-    <interface>:<label>:<strategy>[:<poll-interval>]
+```
+<interface>:<label>:<strategy>[:<poll-interval>]
+```
 
 Supported strategies are:
 
@@ -50,7 +56,7 @@ dryrun
 : Do not update DNS
 
 poll-interval *duration*
-:	IP address discovery poll interval (default 1m0s)
+: IP address discovery poll interval (default 1m0s)
 
 service *string*
 : Service for discovering IP address: Akamai, Google, OpenDNS (default "google")
