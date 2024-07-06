@@ -10,6 +10,12 @@ publish using the [Cloudflare API](https://developers.cloudflare.com/api/operati
 # BUILDING
 
 ```
+go install github.com/msantos/dnsup@latest
+```
+
+To build a reproducible executable from the git repository:
+
+```
 CGO_ENABLED=0 go build -trimpath -ldflags "-w"
 ```
 
