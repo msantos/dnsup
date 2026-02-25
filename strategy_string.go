@@ -19,8 +19,9 @@ const _Strategy_name = "inet4inet6resolv4resolv6"
 var _Strategy_index = [...]uint8{0, 5, 10, 17, 24}
 
 func (i Strategy) String() string {
-	if i < 0 || i >= Strategy(len(_Strategy_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Strategy_index)-1 {
 		return "Strategy(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Strategy_name[_Strategy_index[i]:_Strategy_index[i+1]]
+	return _Strategy_name[_Strategy_index[idx]:_Strategy_index[idx+1]]
 }
