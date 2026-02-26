@@ -1,3 +1,5 @@
+[![Go Reference](https://pkg.go.dev/badge/go.iscode.ca/dnsup.svg)](https://pkg.go.dev/go.iscode.ca/dnsup)
+
 # SYNOPSIS
 
 dnsup [*options*] <domain> <interface>
@@ -9,19 +11,19 @@ publish using the [Cloudflare API](https://developers.cloudflare.com/api/operati
 
 # BUILDING
 
-```
+```bash
 go install github.com/msantos/dnsup@latest
 ```
 
 To build a reproducible executable from the git repository:
 
-```
+```bash
 CGO_ENABLED=0 go build -trimpath -ldflags "-w"
 ```
 
 # EXAMPLES
 
-```
+```bash
 dnsup example.com eth0:host1:inet6 eth1:host2:resolv
 ```
 
