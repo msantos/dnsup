@@ -12,7 +12,7 @@ publish using the [Cloudflare API](https://developers.cloudflare.com/api/operati
 # BUILDING
 
 ```bash
-go install github.com/msantos/dnsup@latest
+go install go.iscode.ca/dnsup@latest
 ```
 
 To build a reproducible executable from the git repository:

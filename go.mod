@@ -1,4 +1,4 @@
-module github.com/msantos/dnsup
+module go.iscode.ca/dnsup
 
 go 1.24.0
 
