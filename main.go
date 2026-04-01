@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, Michael Santos <michael.santos@gmail.com>
+// Copyright (c) 2020-2026, Michael Santos <michael.santos@gmail.com>
 //
 // Permission to use, copy, modify, and/or distribute this software for any
 // purpose with or without fee is hereby granted, provided that the above
@@ -60,7 +60,7 @@ type argvT struct {
 }
 
 const (
-	version = "0.2.1"
+	version = "0.3.0"
 
 	Akamai     = "akamai"
 	Cloudflare = "cloudflare"
